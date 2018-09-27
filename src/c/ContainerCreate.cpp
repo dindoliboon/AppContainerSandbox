@@ -1,5 +1,5 @@
+#include <stdio.h>
 #include <windows.h>
-#include <strsafe.h>
 #include <Sddl.h>
 #include <Userenv.h>
 #include <AccCtrl.h>
@@ -20,6 +20,22 @@ BOOL IsInAppContainer();
 BOOL SetSecurityCapabilities(PSID container_sid, SECURITY_CAPABILITIES *capabilities, PDWORD num_capabilities);
 BOOL GrantNamedObjectAccess(PSID appcontainer_sid, CHAR *object_name, SE_OBJECT_TYPE object_type, DWORD access_mask);
 
+// https://docs.microsoft.com/en-us/windows/desktop/api/userenv/nf-userenv-createappcontainerprofile
+USERENVAPI HRESULT CreateAppContainerProfile(
+  PCWSTR              pszAppContainerName,
+  PCWSTR              pszDisplayName,
+  PCWSTR              pszDescription,
+  PSID_AND_ATTRIBUTES pCapabilities,
+  DWORD               dwCapabilityCount,
+  PSID                *ppSidAppContainerSid
+);
+
+// https://docs.microsoft.com/en-us/windows/desktop/api/userenv/nf-userenv-deriveappcontainersidfromappcontainername
+USERENVAPI HRESULT DeriveAppContainerSidFromAppContainerName(
+  PCWSTR pszAppContainerName,
+  PSID   *ppsidAppContainerSid
+);
+
 /*
     Create a container with container_name and run the specified application inside it
 */
@@ -28,7 +44,8 @@ BOOL RunExecutableInContainer(CHAR *executable_path)
     PSID sid = NULL;
     HRESULT result;
     SECURITY_CAPABILITIES SecurityCapabilities = {0};
-    DWORD num_capabilities = 0, attribute_size = 0;;
+    DWORD num_capabilities = 0;
+	SIZE_T attribute_size = 0;
     STARTUPINFOEXA startup_info = {0};
     PROCESS_INFORMATION process_info = {0};
     CHAR desktop_file[MAX_PATH];
@@ -68,10 +85,10 @@ BOOL RunExecutableInContainer(CHAR *executable_path)
 
         ExpandEnvironmentStringsA("%userprofile%\\desktop\\allowed_test.txt", desktop_file, MAX_PATH-1);
 
-        file_handle = CreateFileA(desktop_file, GENERIC_ALL, NULL, NULL, OPEN_ALWAYS, NULL, NULL);
+        file_handle = CreateFileA(desktop_file, GENERIC_ALL, 0, NULL, OPEN_ALWAYS, 0, NULL);
         if(file_handle == INVALID_HANDLE_VALUE)
         {
-            printf("Failed to create file %s, last error: %d\n", desktop_file);
+            printf("Failed to create file %s, last error: %d\n", desktop_file, GetLastError());
             break;
         }
         
@@ -81,10 +98,10 @@ BOOL RunExecutableInContainer(CHAR *executable_path)
             break;
         }
 
-        InitializeProcThreadAttributeList(NULL, 1, NULL, &attribute_size);
+        InitializeProcThreadAttributeList(NULL, 1, 0, &attribute_size);
         startup_info.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)malloc(attribute_size);
 
-        if(!InitializeProcThreadAttributeList(startup_info.lpAttributeList, 1, NULL, &attribute_size))
+        if(!InitializeProcThreadAttributeList(startup_info.lpAttributeList, 1, 0, &attribute_size))
         {
             printf("InitializeProcThreadAttributeList() failed, last error: %d", GetLastError());
             break;
@@ -133,7 +150,7 @@ BOOL RunExecutableInContainer(CHAR *executable_path)
 /*
     Check if the current process is running inside an AppContainer
 */
-BOOL IsInAppContainer()
+BOOL IsInAppContainer(void)
 {
     HANDLE process_token;
     BOOL is_container = 0; 
@@ -142,7 +159,7 @@ BOOL IsInAppContainer()
     OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &process_token);
 
     if (!GetTokenInformation(process_token, TokenIsAppContainer, &is_container, sizeof(is_container), &return_length)) 
-        return false;
+        return FALSE;
 
     return is_container;
 }
@@ -227,7 +244,7 @@ BOOL GrantNamedObjectAccess(PSID appcontainer_sid, CHAR *object_name, SE_OBJECT_
         status = SetEntriesInAclA(1, &explicit_access, original_acl, &new_acl);
         if(status != ERROR_SUCCESS)
         {
-            printf("SetEntriesInAclA() failed, error: %d\n", object_name, status);
+            printf("SetEntriesInAclA() failed, error: %d\n", status);
             break;
         }
 

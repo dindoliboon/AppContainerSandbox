@@ -6,15 +6,15 @@
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "Iphlpapi.lib")
 
-void NetworkTest();
-void FilesystemTest();
-void ProcessListTest();
-CHAR *GatewayIp();
+void NetworkTest(void);
+void FilesystemTest(void);
+void ProcessListTest(void);
+CHAR *GatewayIp(void);
 void ConnectTest(CHAR *ip, SHORT port);
 void CreateFileTest(CHAR *file_path);
 
 
-void RunContainerTests()
+void RunContainerTests(void)
 {
     printf("We are running in an app container\n\n");
 
@@ -23,7 +23,7 @@ void RunContainerTests()
     ProcessListTest();
 }
 
-void NetworkTest()
+void NetworkTest(void)
 {
     printf("[+] Running network test...\n");
 
@@ -39,7 +39,7 @@ void NetworkTest()
     printf("[+] Network testing done\n\n");
 }
 
-void FilesystemTest()
+void FilesystemTest(void)
 {
     printf("[+] Running filesystem test...\n");
 
@@ -73,11 +73,13 @@ void FilesystemTest()
 /*
     Should only list the System pseudo-process, conhost (the application's console host process), and the application
 */
-void ProcessListTest()
+void ProcessListTest(void)
 {
     printf("[+] Running process list testing...\n");
-    tagPROCESSENTRY32W process_entry;
-    HANDLE snapshot;
+    //tagPROCESSENTRY32W process_entry;
+    //HANDLE snapshot;
+	PROCESSENTRY32 process_entry = {0};
+	HANDLE snapshot;
 
     process_entry.dwSize = sizeof(process_entry);
 
@@ -99,7 +101,7 @@ void ProcessListTest()
      printf("[+] Process list testing done\n\n");
 }
 
-CHAR *GatewayIp()
+CHAR *GatewayIp(void)
 {
     static CHAR ip[16];
     PVOID memory_buffer;
@@ -134,7 +136,7 @@ void ConnectTest(CHAR *ip, SHORT port)
 {
     WSADATA wsadata;
     SOCKET sock;
-    sockaddr_in addr;
+    SOCKADDR_IN addr;
 
     WSAStartup(MAKEWORD(2, 2), &wsadata);
 
@@ -169,7 +171,7 @@ void CreateFileTest(CHAR *file_path)
 {
     HANDLE file_handle;
 
-    file_handle = CreateFileA(file_path, GENERIC_ALL, 0, NULL, OPEN_ALWAYS, NULL, NULL);
+    file_handle = CreateFileA(file_path, GENERIC_ALL, 0, NULL, OPEN_ALWAYS, 0, NULL);
     if(file_handle != INVALID_HANDLE_VALUE)
     {
         printf("Opening of file %s was successful\n", file_path);
